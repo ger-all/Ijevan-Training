@@ -2,132 +2,133 @@
 #include <string>
 #include <sstream>
 #include <map>
-#include <vector>
-#include <memory>
-
+#include "Widget.hpp"
+#include "Window.hpp"
+#include "Text.hpp"
+#include "Table.hpp"
+#include "Button.hpp"
 using namespace std;
-
-// === Base Widget Class ===
-class Widget {
-protected:
-    int id;
-    int parentId;
-    int row, col;
-
-public:
-    Widget(int id, int parentId, int row, int col)
-        : id(id), parentId(parentId), row(row), col(col) {}
-
-    virtual void Draw() = 0; // Pure virtual
-    virtual ~Widget() {}
-
-    int GetId() const { return id; }
-    int GetParentId() const { return parentId; }
-};
-
-// === Window Class ===
-class Window : public Widget {
-    int rowCount, colCount;
-    vector<Widget*> children;
-
-public:
-    Window(int id, int parentId, int row, int col, int rowCount, int colCount)
-        : Widget(id, parentId, row, col), rowCount(rowCount), colCount(colCount) {}
-
-    void AddChild(Widget* child) {
-        // stugel chapery
-        children.push_back(child);
-    }
-
-    void Draw() override {
-        cout << "Window ID=" << id
-            << " size=" << rowCount << "x" << colCount
-            << " at (" << row << "," << col << ")\n";
-
-        for (auto c : children) {
-            c->Draw();
-        }
-    }
-};
-
-//stugel 3 obyektnery chaperov, nor sarqel
-
-// === Text Class ===
-class Text : public Widget {
-    string text;
-
-public:
-    Text(int id, int parentId, int row, int col, const string& text)
-        : Widget(id, parentId, row, col), text(text) {}
-
-    void Draw() override {
-        cout << "  Text ID=" << id
-            << " at (" << row << "," << col << ") -> \"" << text << "\"\n";
-    }
-};
-
-// === Table Class ===
-class Table : public Widget {
-    int rowCount, colCount;
-
-public:
-    Table(int id, int parentId, int row, int col, int rowCount, int colCount)
-        : Widget(id, parentId, row, col), rowCount(rowCount), colCount(colCount) {}
-
-    void Draw() override {
-        cout << "  Table ID=" << id
-            << " size=" << rowCount << "x" << colCount
-            << " at (" << row << "," << col << ")\n";
-    }
-};
-
-// === Button Class ===
-class Button : public Widget {
-    string text;
-
-public:
-    Button(int id, int parentId, int row, int col, const string& text)
-        : Widget(id, parentId, row, col), text(text) {}
-
-    void Draw() override {
-        cout << "  Button ID=" << id
-            << " at (" << row << "," << col << ") -> [" << text << "]\n";
-    }
-};
 
 // === Global storage ===
 map<int, Widget*> widgets;
 
+// === Check functions ===
+bool isAvailableId(int id) {
+    if (id < 0) {
+        cout << "Error: 'id' must be positive number" << endl;
+        return false;
+    }
+
+    if (widgets.find(id) != widgets.end()) {
+        cout << "Error: widget with id " << id << " already exists!" << endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool isAvailableParentId(int parentId) {
+    if (parentId < 0) {
+        cout << "Error: 'parentId' must be positive number" << endl;
+        return false;
+    }
+
+    auto parentIt = widgets.find(parentId);
+    if (parentIt == widgets.end()) {
+        cout << "Error: Parent window with id " << parentId << " not found!" << endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool isAvailableParentId_window(int parentId) {
+    if (parentId != -1) {
+        if (parentId < 0) {
+            cout << "Error: 'parentId' must be positive number or -1" << endl;
+            return false;
+        }
+
+        auto parentIt = widgets.find(parentId);
+        if (parentIt == widgets.end()) {
+            cout << "Error: Parent window with id " << parentId << " not found!" << endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+bool add_to_parent_if_possible(Widget* w, int parentId) {
+    if (parentId == -1) return true; // root window
+
+    Window* parent = dynamic_cast<Window*>(widgets[parentId]);
+    if (!parent) {
+        cout << "Error: parent must be a Window\n";
+        return false;
+    }
+
+    if (!(parent->AddChild(w))) {
+        return false; // նույն տեղում արդեն կա
+    }
+
+    return true;
+}
+
 // === Add functions ===
 void add_window(int id, int rows, int cols, int parentId = -1, int row = -1, int col = -1) {
+    if (!isAvailableId(id)) return;
+    if (!isAvailableParentId_window(parentId)) return;
+
     Window* w = new Window(id, parentId, row, col, rows, cols);
-    widgets[id] = w; //եթե չկար նման key նորն է ստեղծվում, եթե կար համապատասխան value-ն է փոխվում
-    if (parentId != -1) {
-        auto parent = dynamic_cast<Window*>(widgets[parentId]);
-        if (parent) parent->AddChild(w);
-        // delete kam skzbic ara sax stugumnery
+
+    if (!add_to_parent_if_possible(w, parentId)) {
+        delete w;
+        return;
     }
+
+    widgets[id] = w;
 }
 
 void add_text(int id, const string& text, int parentId, int row, int col) {
+    if (!isAvailableId(id)) return;
+    if (!isAvailableParentId(parentId)) return;
+
     Text* t = new Text(id, parentId, row, col, text);
+
+    if (!add_to_parent_if_possible(t, parentId)) {
+        delete t;
+        return;
+    }
+
     widgets[id] = t;
-    auto parent = dynamic_cast<Window*>(widgets[parentId]);
-    if (parent) parent->AddChild(t);
 }
 
 void add_table(int id, int rows, int cols, int parentId, int row, int col) {
+    if (!isAvailableId(id)) return;
+    if (!isAvailableParentId(parentId)) return;
+    
     Table* tb = new Table(id, parentId, row, col, rows, cols);
+
+    if (!add_to_parent_if_possible(tb, parentId)) {
+        delete tb;
+        return;
+    }
+
     widgets[id] = tb;
-    auto parent = dynamic_cast<Window*>(widgets[parentId]);
-    if (parent) parent->AddChild(tb);
 }
 
 void add_button(int id, const string& text, int parentId, int row, int col) {
+    if (!isAvailableId(id)) return;
+    if (!isAvailableParentId(parentId)) return;
+
     Button* b = new Button(id, parentId, row, col, text);
+
+    if (!add_to_parent_if_possible(b, parentId)) {
+        delete b;
+        return;
+    }
+
     widgets[id] = b;
-    auto parent = dynamic_cast<Window*>(widgets[parentId]);
-    if (parent) parent->AddChild(b);
 }
 
 // === Draw all root windows ===
@@ -139,6 +140,7 @@ void draw_all() {
     }
 }
 
+// === Print all commands ===
 void printCommands() {
     cout << "CLI Window Manager\n";
     cout << "Enter commands, type 'exit' to quit.\n\n";
@@ -148,6 +150,7 @@ void printCommands() {
     cout << "  add_table <id> <rowCount> <colCount> <parentWindowId> <row> <col>\n";
     cout << "  add_button <id> <text> <parentWindowId> <row> <col>\n";
     cout << "  draw\n";
+    cout << "  help\n";
     cout << "  exit\n\n";
 }
 
@@ -156,8 +159,7 @@ int main() {
     string line;
 
     printCommands();
-    // himanvores mapy, inchu es ogtagorcel
-    // is(available() function unena
+
     while (true) {
         cout << "> ";
         if (!getline(cin, line)) break;
@@ -176,7 +178,6 @@ int main() {
             int id, pId, row, col;
             string text;
             ss >> id;
-            // example: "hello", it will work ok
             ss.ignore(); // skip space
             getline(ss, text, '"'); // first quote
             getline(ss, text, '"'); // actual text
@@ -201,6 +202,9 @@ int main() {
         else if (cmd == "draw") {
             draw_all();
         }
+        else if (cmd == "help") {
+            printCommands();
+        }
         else {
             cout << "Unknown command: " << cmd << "\n";
         }
@@ -210,8 +214,6 @@ int main() {
     for (auto& kv : widgets) {
         delete kv.second;
     }
-
-
 
     return 0;
 }
