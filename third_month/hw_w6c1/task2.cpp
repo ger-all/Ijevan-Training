@@ -32,14 +32,14 @@ void* zero(void* arg) {
 }
 
 void* odd(void* arg) {
-    for(int i = 1; i <= Number * 2; i += 2) {
+    for(int i = 1; i <= Number; i += 2) {
         pthread_mutex_lock(&mtx);
 
         while (turn != 1) {
             pthread_cond_wait(&cv, &mtx);
         }
 
-        printf("%d", i);
+        printf("\033[31m%d\033[0m", i);      
         fflush(stdout);
 
         turn = 0;
@@ -52,14 +52,14 @@ void* odd(void* arg) {
 }
 
 void* even(void* arg) {
-    for(int i = 2; i <= Number * 2; i += 2) {
+    for(int i = 2; i <= Number; i += 2) {
         pthread_mutex_lock(&mtx);
 
         while (turn != 2) {
             pthread_cond_wait(&cv, &mtx);
         }
 
-        printf("%d", i);
+        printf("\033[32m%d\033[0m", i);
         fflush(stdout);
 
         turn = 0;
@@ -84,6 +84,8 @@ int main() {
     pthread_join(threads[0], NULL);
     pthread_join(threads[1], NULL);
     pthread_join(threads[2], NULL);
+
+    printf("\n");
 
     // մաքրում ենք ռեսուրսները
     pthread_mutex_destroy(&mtx);
